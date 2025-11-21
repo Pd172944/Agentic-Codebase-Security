@@ -1,0 +1,28 @@
+# Environment
+.env
+venv/
+env/
+*.pyc
+__pycache__/
+
+# Results and logs
+results/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data
+data/
+*.parquet
+*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+.claude/
