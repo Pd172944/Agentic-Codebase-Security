@@ -1,0 +1,70 @@
+# Quick Start Guide: Local AgentBeats Setup
+
+**Prerequisites:**
+1. **Python 3.10+** installed.
+2. **ngrok** installed and authenticated (get authtoken from [ngrok dashboard](https://dashboard.ngrok.com/)).
+3. **AgentBeats CLI (`earthshaker`)** installed.
+
+---
+
+## 1. Clone & Install
+
+```bash
+git clone <your-repo-url>
+cd <repo-name>
+
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install earthshaker  # Install AgentBeats controller
+```
+
+## 2. Configuration
+
+Create a `.env` file in the root directory:
+```bash
+# Required for the agent to run assessments
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+## 3. Start the System
+
+You will need **two terminal windows**.
+
+**Terminal 1: Start Tunnel**
+Start ngrok on port 8010 (the controller port).
+```bash
+ngrok http 8010
+```
+Copy the forwarding URL (e.g., `https://your-domain.ngrok-free.dev`) - you will need this for the next step.
+
+**Terminal 2: Start Controller**
+Replace the URL below with the one you just copied (without `http://` or `https://`).
+```bash
+# Make sure venv is activated
+source venv/bin/activate
+
+# Set your public hostname (required for remote access)
+export CLOUDRUN_HOST=your-domain.ngrok-free.dev
+
+# Run the controller
+agentbeats run_ctrl
+```
+
+## 4. Connect to Platform
+
+1. Go to the **AgentBeats Platform**.
+2. Paste your ngrok URL (e.g., `https://your-domain.ngrok-free.dev`) into the **Controller URL** field.
+3. Click **"Check Again"**.
+
+---
+
+## Troubleshooting
+
+- **"Controller Reachable: No"**: Check if `ngrok` is running and the URL is correct.
+- **"Agent Card Content could not be loaded"**: Ensure `CLOUDRUN_HOST` was set correctly when starting the controller. It must match your public ngrok domain.
+- **"Address already in use"**: Kill any lingering python processes (`pkill -f server.py` or `pkill -f agentbeats`).
+
