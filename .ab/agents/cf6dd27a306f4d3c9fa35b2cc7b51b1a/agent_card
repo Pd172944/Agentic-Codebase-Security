@@ -1,0 +1,29 @@
+{
+  "additionalInterfaces": null,
+  "capabilities": {
+    "extensions": null,
+    "pushNotifications": null,
+    "stateTransitionHistory": null,
+    "streaming": null
+  },
+  "defaultInputModes": [
+    "text"
+  ],
+  "defaultOutputModes": [
+    "text"
+  ],
+  "description": "Green agent for assessing code vulnerability fixing capabilities",
+  "documentationUrl": null,
+  "iconUrl": null,
+  "name": "VulnerabilityAssessmentGreenAgent",
+  "preferredTransport": "JSONRPC",
+  "protocolVersion": "0.3.0",
+  "provider": null,
+  "security": null,
+  "securitySchemes": null,
+  "signatures": null,
+  "skills": [],
+  "supportsAuthenticatedExtendedCard": null,
+  "url": "http://0.0.0.0:20042",
+  "version": "1.0.0"
+}
