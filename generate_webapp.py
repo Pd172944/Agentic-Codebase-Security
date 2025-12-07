@@ -1,423 +1,6 @@
-"""FastAPI web application with improved UI - Professional light theme."""
+"""Generate the webapp with visualizations and PR text."""
 
-import asyncio
-import sys
-import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-import functools
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
-from typing import List, Dict
-import json
-from datetime import datetime
-
-from src.config import (
-    get_available_agents,
-    validate_config,
-    DATASET_NAME,
-    SAMPLE_SIZE,
-    RANDOM_SEED,
-    OPENAI_API_KEY,
-    ANTHROPIC_API_KEY,
-    GOOGLE_API_KEY,
-)
-from src.dataset_loader import DatasetLoader
-from src.agents import GPTAgent, ClaudeAgent, GeminiAgent
-from src.evaluators.llm_evaluator import LLMEvaluator
-from src.evaluators.gemini_evaluator import GeminiEvaluator
-from src.evaluators.anthropic_evaluator import AnthropicEvaluator
-from src.evaluators.static_analyzer import StaticAnalyzer
-from src.evaluators.code_executor import CodeExecutor
-from src.config import GPT_MODEL, CLAUDE_MODEL, GEMINI_MODEL
-from src.utils.logger import setup_logger
-
-# Import demo mode
-try:
-    from webapp.demo_mode import run_demo_evaluation
-    DEMO_MODE_AVAILABLE = True
-except ImportError:
-    DEMO_MODE_AVAILABLE = False
-
-logger = setup_logger("webapp")
-
-app = FastAPI(title="AI Agent Vulnerability Evaluation")
-
-# Global state
-evaluation_state = {
-    "running": False,
-    "progress": 0,
-    "total": 0,
-    "current_example": None,
-    "current_agent": None,
-    "results": [],
-    "samples": []  # Store samples with full code for visualization
-}
-
-class ConnectionManager:
-    """Manages WebSocket connections."""
-
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connected clients."""
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception as e:
-                logger.error(f"Error broadcasting to client: {e}")
-
-manager = ConnectionManager()
-
-@app.get("/")
-async def root():
-    """Serve the main UI."""
-    return HTMLResponse(content=get_html_content(), status_code=200)
-
-@app.get("/api/status")
-async def get_status():
-    """Get current evaluation status."""
-    return JSONResponse(content=evaluation_state)
-
-@app.get("/api/sample/{sample_id}")
-async def get_sample(sample_id: int):
-    """Get detailed sample information."""
-    for sample in evaluation_state.get("samples", []):
-        if sample["id"] == sample_id:
-            return JSONResponse(content=sample)
-    return JSONResponse(content={"error": "Sample not found"}, status_code=404)
-
-@app.post("/api/start")
-async def start_evaluation(sample_count: int = 10):
-    """Start evaluation with specified sample count."""
-    global evaluation_state
-
-    if evaluation_state["running"]:
-        return JSONResponse(
-            content={"error": "Evaluation already running"},
-            status_code=400
-        )
-
-    # Reset state
-    evaluation_state = {
-        "running": True,
-        "progress": 0,
-        "total": 0,
-        "current_example": None,
-        "current_agent": None,
-        "results": [],
-        "samples": [],
-        "start_time": datetime.now().isoformat(),
-    }
-
-    # Run evaluation in background
-    asyncio.create_task(run_evaluation(sample_count))
-
-    return JSONResponse(content={"status": "started"})
-
-@app.post("/api/stop")
-async def stop_evaluation():
-    """Stop running evaluation."""
-    evaluation_state["running"] = False
-    return JSONResponse(content={"status": "stopped"})
-
-@app.post("/api/start_demo")
-async def start_demo_evaluation(sample_count: int = 5):
-    """Start demo evaluation with mock data."""
-    global evaluation_state
-
-    if not DEMO_MODE_AVAILABLE:
-        return JSONResponse(
-            content={"error": "Demo mode not available"},
-            status_code=400
-        )
-
-    if evaluation_state["running"]:
-        return JSONResponse(
-            content={"error": "Evaluation already running"},
-            status_code=400
-        )
-
-    # Reset state
-    evaluation_state = {
-        "running": True,
-        "progress": 0,
-        "total": 0,
-        "current_example": None,
-        "current_agent": None,
-        "results": [],
-        "samples": [],
-        "start_time": datetime.now().isoformat(),
-    }
-
-    # Run demo in background
-    asyncio.create_task(run_demo_with_samples(sample_count))
-
-    return JSONResponse(content={"status": "started", "mode": "demo"})
-
-async def run_demo_with_samples(sample_count: int):
-    """Run demo and populate samples."""
-    from webapp.demo_mode import DEMO_SAMPLES
-
-    # Store samples
-    evaluation_state["samples"] = DEMO_SAMPLES[:sample_count]
-
-    # Broadcast samples
-    await manager.broadcast({
-        "type": "samples",
-        "data": evaluation_state["samples"]
-    })
-
-    # Run demo evaluation
-    await run_demo_evaluation(manager.broadcast, sample_count)
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time updates."""
-    await manager.connect(websocket)
-    try:
-        # Send initial state
-        await websocket.send_json({
-            "type": "status",
-            "data": evaluation_state
-        })
-
-        # Keep connection alive
-        while True:
-            data = await websocket.receive_text()
-            await websocket.send_text(f"ack: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-async def run_evaluation(sample_count: int):
-    """Run evaluation pipeline with real-time updates."""
-    global evaluation_state
-
-    try:
-        # Validate config
-        validate_config()
-
-        # Broadcast start message
-        await manager.broadcast({
-            "type": "log",
-            "data": f"Starting evaluation with {sample_count} Python samples..."
-        })
-
-        # Load dataset (Python only)
-        dataset_loader = DatasetLoader(
-            DATASET_NAME,
-            sample_count,
-            RANDOM_SEED,
-            filter_language="python"
-        )
-
-        await manager.broadcast({
-            "type": "log",
-            "data": "Loading dataset from HuggingFace..."
-        })
-
-        samples = dataset_loader.load()
-        evaluation_state["samples"] = samples
-
-        # Broadcast samples
-        await manager.broadcast({
-            "type": "samples",
-            "data": samples
-        })
-
-        await manager.broadcast({
-            "type": "log",
-            "data": f"Loaded {len(samples)} Python examples"
-        })
-
-        # Initialize only available agents
-        agents = {}
-        if OPENAI_API_KEY:
-            agents["GPT-4o"] = GPTAgent(GPT_MODEL, OPENAI_API_KEY)
-        if ANTHROPIC_API_KEY:
-            agents["Claude-Sonnet-4"] = ClaudeAgent(CLAUDE_MODEL, ANTHROPIC_API_KEY)
-        if GOOGLE_API_KEY:
-            agents["Gemini-2.0-Flash"] = GeminiAgent(GEMINI_MODEL, GOOGLE_API_KEY)
-
-        if not agents:
-            raise ValueError("No agents available. Please configure at least one API key.")
-
-        await manager.broadcast({
-            "type": "log",
-            "data": f"Available agents: {', '.join(agents.keys())}"
-        })
-
-        # Initialize evaluators - use available API key
-        if OPENAI_API_KEY:
-            llm_evaluator = LLMEvaluator(OPENAI_API_KEY)
-        elif ANTHROPIC_API_KEY:
-            llm_evaluator = AnthropicEvaluator(ANTHROPIC_API_KEY)
-        elif GOOGLE_API_KEY:
-            llm_evaluator = GeminiEvaluator(GOOGLE_API_KEY)
-        else:
-            raise ValueError("No evaluator available. Need OpenAI, Anthropic, or Google API key.")
-        
-        static_analyzer = StaticAnalyzer()
-        code_executor = CodeExecutor()
-
-        # Calculate total
-        total_evaluations = len(samples) * len(agents)
-        evaluation_state["total"] = total_evaluations
-
-        await manager.broadcast({
-            "type": "status",
-            "data": evaluation_state
-        })
-
-        # Evaluate each sample
-        progress = 0
-        for sample in samples:
-            for agent_name, agent in agents.items():
-                if not evaluation_state["running"]:
-                    await manager.broadcast({
-                        "type": "log",
-                        "data": "Evaluation stopped by user"
-                    })
-                    return
-
-                # Update state
-                evaluation_state["current_example"] = sample["id"]
-                evaluation_state["current_agent"] = agent_name
-                evaluation_state["progress"] = progress
-
-                await manager.broadcast({
-                    "type": "status",
-                    "data": evaluation_state
-                })
-
-                await manager.broadcast({
-                    "type": "log",
-                    "data": f"Evaluating {agent_name} on example {sample['id']}..."
-                })
-
-                # Run evaluation
-                result = await evaluate_single(
-                    sample, agent_name, agent,
-                    llm_evaluator, static_analyzer, code_executor
-                )
-
-                # Store result
-                evaluation_state["results"].append(result)
-
-                # Broadcast result
-                await manager.broadcast({
-                    "type": "result",
-                    "data": result
-                })
-
-                progress += 1
-
-        # Complete
-        evaluation_state["running"] = False
-        evaluation_state["progress"] = total_evaluations
-        evaluation_state["end_time"] = datetime.now().isoformat()
-
-        await manager.broadcast({
-            "type": "complete",
-            "data": evaluation_state
-        })
-
-        await manager.broadcast({
-            "type": "log",
-            "data": f"Evaluation complete! Processed {len(samples)} samples with {len(agents)} agents."
-        })
-
-    except Exception as e:
-        logger.error(f"Evaluation error: {e}", exc_info=True)
-        evaluation_state["running"] = False
-        await manager.broadcast({
-            "type": "error",
-            "data": str(e)
-        })
-
-# Thread pool for running blocking API calls
-executor = ThreadPoolExecutor(max_workers=4)
-
-def _evaluate_single_sync(
-    sample: dict,
-    agent_name: str,
-    agent,
-    llm_evaluator,
-    static_analyzer,
-    code_executor
-) -> dict:
-    """Evaluate single example (synchronous - runs in thread pool)."""
-    # Agent fix
-    agent_response = agent.fix_vulnerability(
-        sample["vulnerable_code"],
-        sample["task_description"],
-        sample["language"],
-        sample["vulnerability"]
-    )
-
-    # LLM evaluation
-    llm_eval = llm_evaluator.evaluate(
-        sample["fixed_code"],
-        agent_response.fixed_code,
-        sample["vulnerability"],
-        sample["language"]
-    )
-
-    # Static analysis
-    static_before = static_analyzer.analyze(sample["vulnerable_code"], "Python")
-    static_after = static_analyzer.analyze(agent_response.fixed_code, "Python")
-    static_comp = static_analyzer.compare_vulnerabilities(static_before, static_after)
-
-    # Code execution
-    exec_result = code_executor.execute(agent_response.fixed_code, "Python")
-
-    return {
-        "example_id": sample["id"],
-        "agent_name": agent_name,
-        "vulnerability": sample["vulnerability"],
-        "agent_fixed_code": agent_response.fixed_code,
-        "similarity_score": llm_eval.similarity_score,
-        "vulnerability_fixed": llm_eval.vulnerability_fixed,
-        "static_analysis_pass": static_comp.get("vulnerabilities_reduced", False),
-        "code_executes": exec_result.success,
-        "time_taken": agent_response.time_taken,
-        "cost": agent_response.cost,
-        "pr_description": agent_response.pr_description,
-    }
-
-async def evaluate_single(
-    sample: dict,
-    agent_name: str,
-    agent,
-    llm_evaluator,
-    static_analyzer,
-    code_executor
-) -> dict:
-    """Evaluate single example (async wrapper - runs blocking code in thread pool)."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        executor,
-        functools.partial(
-            _evaluate_single_sync,
-            sample, agent_name, agent,
-            llm_evaluator, static_analyzer, code_executor
-        )
-    )
-
-def get_html_content() -> str:
-    return """<!DOCTYPE html>
+HTML_TEMPLATE = '''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -699,21 +282,12 @@ def get_html_content() -> str:
             document.getElementById('modalTitle').textContent = r.vulnerability;
             document.getElementById('modalBody').innerHTML = `
                 <div class="info-grid">
-                    <div class="info-item"><div class="label">Example ID</div><div class="value">#${r.example_id}</div></div>
                     <div class="info-item"><div class="label">Agent</div><div class="value">${r.agent_name}</div></div>
                     <div class="info-item"><div class="label">Score</div><div class="value">${r.similarity_score.toFixed(1)}/10</div></div>
-                    <div class="info-item"><div class="label">Fixed</div><div class="value"><span class="badge ${r.vulnerability_fixed ? 'badge-success' : 'badge-danger'}">${r.vulnerability_fixed ? 'Yes' : 'No'}</span></div></div>
-                    <div class="info-item"><div class="label">Executes</div><div class="value"><span class="badge ${r.code_executes ? 'badge-success' : 'badge-danger'}">${r.code_executes ? 'Yes' : 'No'}</span></div></div>
+                    <div class="info-item"><div class="label">Fixed</div><div class="value">${r.vulnerability_fixed ? 'Yes' : 'No'}</div></div>
+                    <div class="info-item"><div class="label">Executes</div><div class="value">${r.code_executes ? 'Yes' : 'No'}</div></div>
                     <div class="info-item"><div class="label">Time</div><div class="value">${r.time_taken.toFixed(2)}s</div></div>
                     <div class="info-item"><div class="label">Cost</div><div class="value">$${r.cost.toFixed(4)}</div></div>
-                    <div class="info-item"><div class="label">Language</div><div class="value">${s.language || 'Python'}</div></div>
-                </div>
-
-                <div class="section" style="margin-top: 20px;">
-                    <div class="section-title" style="font-weight: 600; margin-bottom: 10px; color: #1e40af;">Task Description</div>
-                    <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        ${escapeHtml(s.task_description || 'No task description available')}
-                    </div>
                 </div>
 
                 <div class="pr-text-container">
@@ -724,21 +298,14 @@ def get_html_content() -> str:
                     <div class="pr-text-content" id="prText${idx}">${escapeHtml(r.pr_description || 'No PR description available')}</div>
                 </div>
 
-                <div class="section" style="margin-top: 20px;">
-                    <div class="section-title" style="font-weight: 600; margin-bottom: 10px; color: #1e40af;">Code Comparison</div>
-                    <div class="code-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                        <div class="code-block" style="background: #1e293b; border-radius: 6px; overflow: hidden;">
-                            <div class="code-block-header" style="background: #fef3c7; color: #92400e; padding: 10px; font-weight: 600;">Vulnerable Code</div>
-                            <pre style="background: #1e293b; padding: 15px; color: #e2e8f0; font-family: monospace; font-size: 12px; max-height: 400px; overflow: auto; margin: 0;">${escapeHtml(s.vulnerable_code || 'N/A')}</pre>
-                        </div>
-                        <div class="code-block" style="background: #1e293b; border-radius: 6px; overflow: hidden;">
-                            <div class="code-block-header" style="background: #dbeafe; color: #1e40af; padding: 10px; font-weight: 600;">${r.agent_name} Fix</div>
-                            <pre style="background: #1e293b; padding: 15px; color: #e2e8f0; font-family: monospace; font-size: 12px; max-height: 400px; overflow: auto; margin: 0;">${escapeHtml(r.agent_fixed_code || 'N/A')}</pre>
-                        </div>
-                        <div class="code-block" style="background: #1e293b; border-radius: 6px; overflow: hidden;">
-                            <div class="code-block-header" style="background: #dcfce7; color: #166534; padding: 10px; font-weight: 600;">Reference Fix</div>
-                            <pre style="background: #1e293b; padding: 15px; color: #e2e8f0; font-family: monospace; font-size: 12px; max-height: 400px; overflow: auto; margin: 0;">${escapeHtml(s.fixed_code || 'N/A')}</pre>
-                        </div>
+                <div class="code-grid">
+                    <div class="code-block">
+                        <div class="code-block-header">Vulnerable Code</div>
+                        <pre>${escapeHtml(s.vulnerable_code || 'N/A')}</pre>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-block-header">Agent Fixed Code</div>
+                        <pre>${escapeHtml(r.agent_fixed_code || 'N/A')}</pre>
                     </div>
                 </div>
             `;
@@ -785,11 +352,26 @@ def get_html_content() -> str:
         connectWebSocket();
     </script>
 </body>
-</html>"""
+</html>'''
 
+# Read current app.py
+with open('webapp/app.py', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-if __name__ == "__main__":
-    import uvicorn
-    print("Starting AI Agent Vulnerability Evaluation Web App...")
-    print("Open http://localhost:8000 in your browser")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# Find and replace the get_html_content function
+import re
+
+# Find the function and replace it
+pattern = r'def get_html_content\(\).*?(?=\nif __name__|$)'
+replacement = f'''def get_html_content() -> str:
+    return """{HTML_TEMPLATE}"""
+
+'''
+
+new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+# Write back
+with open('webapp/app.py', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+
+print("Updated webapp/app.py with new HTML template")

@@ -16,6 +16,7 @@ class AgentResponse:
     cost: float
     model_name: str
     reasoning_effort: str = ""  # For models with extended thinking
+    pr_description: str = ""  # PR-ready explanation of the fix
 
 class BaseAgent(ABC):
     """Abstract base class for AI agents."""
@@ -83,7 +84,14 @@ class BaseAgent(ABC):
 {vulnerable_code}
 ```
 
-Please provide a secure, fixed version of this code that addresses the vulnerability. Return ONLY the fixed code without any explanations or markdown formatting."""
+Please fix this security vulnerability and provide your response in the following JSON format:
+
+{{
+    "fixed_code": "The complete fixed code here",
+    "pr_description": "A clear, professional PR description explaining: 1) What vulnerability was found, 2) How it was fixed, 3) Why this fix is secure. Format it as markdown suitable for a GitHub PR description."
+}}
+
+Return ONLY the JSON object, no additional text."""
 
     @abstractmethod
     def calculate_cost(self, input_tokens: int, output_tokens: int) -> float:

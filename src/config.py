@@ -35,20 +35,31 @@ COST_PER_1M_TOKENS = {
 }
 
 def validate_config():
-    """Validate that all required API keys are present."""
-    missing_keys = []
+    """Validate that at least one API key is present."""
+    available_keys = []
 
-    if not OPENAI_API_KEY:
-        missing_keys.append("OPENAI_API_KEY")
-    if not ANTHROPIC_API_KEY:
-        missing_keys.append("ANTHROPIC_API_KEY")
-    if not GOOGLE_API_KEY:
-        missing_keys.append("GOOGLE_API_KEY")
+    if OPENAI_API_KEY:
+        available_keys.append("OPENAI_API_KEY")
+    if ANTHROPIC_API_KEY:
+        available_keys.append("ANTHROPIC_API_KEY")
+    if GOOGLE_API_KEY:
+        available_keys.append("GOOGLE_API_KEY")
 
-    if missing_keys:
+    if not available_keys:
         raise ValueError(
-            f"Missing required API keys: {', '.join(missing_keys)}. "
-            "Please set them in your .env file."
+            "No API keys found. Please set at least one API key in your .env file: "
+            "OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY"
         )
 
     return True
+
+def get_available_agents():
+    """Return list of agents that have API keys configured."""
+    available = []
+    if OPENAI_API_KEY:
+        available.append("GPT-4o")
+    if ANTHROPIC_API_KEY:
+        available.append("Claude-Sonnet-4")
+    if GOOGLE_API_KEY:
+        available.append("Gemini-2.0-Flash")
+    return available
