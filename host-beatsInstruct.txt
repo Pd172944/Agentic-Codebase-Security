@@ -1,0 +1,65 @@
+# AgentBeats & Web App Hosting Instructions
+
+This guide details the exact terminal commands to run the two main components of this project: the Web Dashboard (port 8000) and the AgentBeats Controller (port 8010 + ngrok).
+
+---
+
+## 1. Web Dashboard (Demo & Real Evaluation)
+**Purpose:** Runs the local web interface where you can see the "Start Demo" / "Start Real Evaluation" buttons and view the progress bar/logs.
+**Port:** 8000
+
+**Terminal 1:**
+```bash
+# 1. Activate your virtual environment
+source venv/bin/activate
+
+# 2. Add current directory to python path (critical for imports)
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+# 3. Run the web server
+uvicorn webapp.app:app --host 0.0.0.0 --port 8000 --reload
+```
+**Access:** Open [http://localhost:8000](http://localhost:8000) in your browser.
+
+---
+
+## 2. AgentBeats Controller (The "Green Agent")
+**Purpose:** Runs the agent server and controller that communicates with the AgentBeats platform. This requires **two** separate terminals.
+
+### Step A: Start the Tunnel (Expose to Internet)
+**Terminal 2:**
+```bash
+# Start ngrok on port 8010
+ngrok http 8010
+```
+> **IMPORTANT:** Copy the `https://...ngrok-free.dev` URL shown in this terminal. You need it for the next step.
+
+### Step B: Start the Controller (Manage the Agent)
+**Terminal 3:**
+```bash
+# 1. Activate virtual environment
+source venv/bin/activate
+
+# 2. Set your public hostname (paste your ngrok URL from Step A, WITHOUT 'https://')
+# Example: export CLOUDRUN_HOST=abc-123.ngrok-free.dev
+export CLOUDRUN_HOST=your-ngrok-domain.ngrok-free.dev
+
+# 3. Run the controller
+agentbeats run_ctrl
+```
+
+---
+
+## 3. Connecting to the Platform
+**Purpose:** How to verify everything is working on the AgentBeats website.
+
+1. Go to the **AgentBeats Platform**.
+2. Find your Agent ("testPD" or similar).
+3. Paste your full ngrok URL (e.g., `https://your-ngrok-domain.ngrok-free.dev`) into the **Controller URL** field.
+4. Click **"Check Again"**.
+
+**Troubleshooting:**
+- **"Agent Card Content could not be loaded"**: Usually means `CLOUDRUN_HOST` wasn't set correctly in Terminal 3 (make sure you removed `https://`).
+- **"Controller Reachable: No"**: Means `ngrok` (Terminal 2) is not running or the URL changed.
+- **"Address already in use"**: Kill lingering processes with `pkill -f uvicorn` or `pkill -f agentbeats`.
+
