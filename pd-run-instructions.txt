@@ -68,3 +68,29 @@ agentbeats run_ctrl
 - **"Agent Card Content could not be loaded"**: Ensure `CLOUDRUN_HOST` was set correctly when starting the controller. It must match your public ngrok domain.
 - **"Address already in use"**: Kill any lingering python processes (`pkill -f server.py` or `pkill -f agentbeats`).
 
+
+
+
+
+#REALLLLLLLLLLLLL
+export CLOUDRUN_HOST="letting-latex-cook-remind.trycloudflare.com"
+^^what you get from running the cloudflared tunnel --url http://localhost 8010 (in terminal 2 instead of ngrok)
+terminal 1: run venv/bin/agentbeats run_ctrl
+terminal 2: ngrok http 8010 (or whatever the local address is)
+
+
+
+
+#for white agents go to separate dir (called 2new-white)
+
+(venv) prithvidixit@Natashas-MacBook-Pro 194-2new-white % # Force run.sh to be the white agent script
+cp run_white.sh run.sh
+export PORT=8020
+export AGENT_PORT=8002
+export CLOUDRUN_HOST="prototype-surprise-miller-rabbit.trycloudflare.com"
+
+#ABOVE PUT THE CLOUDFLARE URL THE BOTTOM ONE GIVES YOU 
+cloudflared tunnel --url http://localhost:8020
+
+
+venv/bin/agentbeats run_ctrl
