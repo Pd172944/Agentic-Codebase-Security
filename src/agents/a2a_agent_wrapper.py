@@ -86,14 +86,25 @@ Provide a secure, fixed version of this code. Return ONLY the fixed Python code.
         # Extract text from result
         return result.data if hasattr(result, 'data') else str(result)
 
-    def to_a2a_server(self):
+    def to_a2a_server(self, **kwargs):
         """
         Convert agent to A2A server.
+
+        Args:
+            **kwargs: Accepted for compatibility (host, port, protocol), but ignored in favor of AGENT_URL.
 
         Returns:
             ASGI app for A2A protocol
         """
-        return self.agent.to_a2a()
+        import os
+        # Use the AGENT_URL environment variable if provided.
+        # The Controller sets this variable to the specific path (e.g., .../agents/{id})
+        agent_url = os.environ.get("AGENT_URL", "http://localhost:8000")
+
+        return self.agent.to_a2a(
+            url=agent_url,
+            name=self.agent_display_name
+        )
 
 
 # Pre-configured A2A agents for each model

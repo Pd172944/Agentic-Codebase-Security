@@ -73,11 +73,13 @@ agentbeats run_ctrl
 
 
 #REALLLLLLLLLLLLL
+export PORT=8010
+export AGENT_PORT=8001
 export CLOUDRUN_HOST="letting-latex-cook-remind.trycloudflare.com"
-^^what you get from running the cloudflared tunnel --url http://localhost 8010 (in terminal 2 instead of ngrok)
+^^what you get from running the  (in terminal 2 instead of ngrok)
 terminal 1: run venv/bin/agentbeats run_ctrl
-terminal 2: ngrok http 8010 (or whatever the local address is)
-
+terminal 2: 
+cloudflared tunnel --url http://localhost:8010
 
 
 

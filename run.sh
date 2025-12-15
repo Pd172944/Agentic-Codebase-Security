@@ -1,7 +1,7 @@
 #!/bin/bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)
-export AGENT_PORT=${AGENT_PORT:-8001}
-export HOST=${HOST:-0.0.0.0}
+#export AGENT_PORT=${AGENT_PORT:-8001}
+#export HOST=${HOST:-0.0.0.0}
 
 # Use the python from the venv if available
 if [ -d "venv" ]; then

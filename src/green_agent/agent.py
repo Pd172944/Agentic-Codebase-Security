@@ -15,6 +15,7 @@ https://agentbeats.ai/blog/agentify-agent-assessment
 import json
 import time
 import asyncio
+import uuid
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 import sys
@@ -211,6 +212,7 @@ class GreenAgent:
             async with ClientSession(white_agent_address) as session:
                 # Create message
                 message = Message(
+                    message_id=str(uuid.uuid4()),  # <--- Message ID added
                     role=Role.user,
                     parts=[Part(root=TextPart(kind='text', text=task_message))],
                     context_id=context_id
@@ -237,6 +239,7 @@ class GreenAgent:
                     "method": "message/send",
                     "params": {
                         "message": {
+                            "messageId": str(uuid.uuid4()),  # <--- Message ID added
                             "role": "user",
                             "parts": [{"kind": "text", "text": task_message}],
                             "context_id": context_id
@@ -269,48 +272,41 @@ class GreenAgent:
     ) -> Dict[str, Any]:
         """
         Evaluate the white agent's response using existing evaluators.
-        
-        Args:
-            fixed_code: Code returned by white agent
-            reference_fix: Reference solution
-            vulnerable_code: Original vulnerable code
-            task_description: Task description
-            language: Programming language
-            
-        Returns:
-            Dictionary with evaluation metrics
         """
-        # LLM Evaluation (similarity score and vulnerability fixed)
-        llm_result = self.llm_evaluator.evaluate(
-            agent_response=fixed_code,
-            reference_solution=reference_fix,
-            task_description=task_description,
-            vulnerable_code=vulnerable_code
+        # 1. LLM Evaluation
+        llm_result_obj = self.llm_evaluator.evaluate(
+            reference_fix=reference_fix,
+            agent_fix=fixed_code,
+            vulnerability_description=task_description,
+            language=language
         )
         
-        # Static Analysis (for Python only)
+        # 2. Static Analysis (for Python only)
         static_analysis_pass = False
         if language.lower() == "python":
             static_result = self.static_analyzer.analyze(
                 code=fixed_code,
                 language=language
             )
-            # Pass if no high/critical vulnerabilities
-            static_analysis_pass = (
-                static_result.get('high_severity', 0) == 0 and
-                static_result.get('critical_severity', 0) == 0
-            )
+            # Handle StaticAnalysisResult object (not a dict)
+            high_sev = getattr(static_result, 'high_severity', 0)
+            crit_sev = getattr(static_result, 'critical_severity', 0)
+            static_analysis_pass = (high_sev == 0 and crit_sev == 0)
         
-        # Code Execution (syntax check)
-        exec_result = self.code_executor.test_code(
+        # 3. Code Execution (syntax check)
+        # FIX: Changed .test_code() to .execute()
+        exec_result = self.code_executor.execute(
             code=fixed_code,
             language=language
         )
-        code_executes = exec_result.get('success', False)
         
+        # Handle ExecutionResult object (not a dict)
+        code_executes = getattr(exec_result, 'success', False)
+        
+        # Return combined metrics
         return {
-            'similarity_score': llm_result.get('similarity_score', 0.0),
-            'vulnerability_fixed': llm_result.get('vulnerability_fixed', False),
+            'similarity_score': getattr(llm_result_obj, 'similarity_score', 0.0),
+            'vulnerability_fixed': getattr(llm_result_obj, 'vulnerability_fixed', False),
             'static_analysis_pass': static_analysis_pass,
             'code_executes': code_executes
         }
@@ -321,26 +317,14 @@ class GreenAgent:
         tasks: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Assess multiple tasks and return aggregated metrics.
-        
-        Args:
-            white_agent_address: A2A address of white agent
-            tasks: List of task dictionaries with keys:
-                   - vulnerable_code
-                   - reference_fix
-                   - task_description
-                   - vulnerability
-                   - language (optional, defaults to 'python')
-            
-        Returns:
-            Dictionary with aggregated metrics
+        Assess multiple tasks in PARALLEL to avoid timeouts.
         """
-        results = []
+        print(f"[Green Agent] Starting parallel evaluation of {len(tasks)} tasks...")
         
+        # 1. Create all coroutines (promises) first
+        coroutines = []
         for i, task in enumerate(tasks):
-            print(f"[Green Agent] Evaluating task {i+1}/{len(tasks)}...")
-            
-            result = await self.handle_assessment_task(
+            coro = self.handle_assessment_task(
                 white_agent_address=white_agent_address,
                 vulnerable_code=task['vulnerable_code'],
                 reference_fix=task['reference_fix'],
@@ -349,26 +333,47 @@ class GreenAgent:
                 language=task.get('language', 'python'),
                 context_id=f"task_{i}"
             )
-            
-            results.append(result)
+            coroutines.append(coro)
         
-        # Aggregate metrics
-        total_tasks = len(results)
-        successful_tasks = sum(1 for r in results if r.success)
-        avg_similarity = sum(r.similarity_score for r in results) / total_tasks
-        avg_time = sum(r.time_used for r in results) / total_tasks
-        vulnerability_fix_rate = sum(1 for r in results if r.vulnerability_fixed) / total_tasks
-        execution_rate = sum(1 for r in results if r.code_executes) / total_tasks
+        # 2. Run them all at once!
+        # return_exceptions=True prevents one crash from killing the whole batch
+        results = await asyncio.gather(*coroutines, return_exceptions=True)
+        
+        # 3. Filter out any system crashes (vs logic failures)
+        valid_results = []
+        for r in results:
+            if isinstance(r, Exception):
+                print(f"Task failed with system error: {r}")
+                # Create a dummy failed result so metrics aren't skewed
+                valid_results.append(AssessmentResult(
+                    success=False, similarity_score=0.0, vulnerability_fixed=False,
+                    code_executes=False, static_analysis_pass=False, 
+                    time_used=0.0, error_message=str(r)
+                ))
+            else:
+                valid_results.append(r)
+        
+        # 4. Aggregate metrics (Same as before)
+        total_tasks = len(valid_results)
+        successful_tasks = sum(1 for r in valid_results if r.success)
+        
+        if total_tasks > 0:
+            avg_similarity = sum(r.similarity_score for r in valid_results) / total_tasks
+            avg_time = sum(r.time_used for r in valid_results) / total_tasks
+            vulnerability_fix_rate = sum(1 for r in valid_results if r.vulnerability_fixed) / total_tasks
+            execution_rate = sum(1 for r in valid_results if r.code_executes) / total_tasks
+        else:
+            avg_similarity = avg_time = vulnerability_fix_rate = execution_rate = 0.0
         
         return {
             'total_tasks': total_tasks,
             'successful_tasks': successful_tasks,
-            'success_rate': successful_tasks / total_tasks,
+            'success_rate': successful_tasks / total_tasks if total_tasks else 0,
             'avg_similarity_score': avg_similarity,
             'vulnerability_fix_rate': vulnerability_fix_rate,
             'execution_rate': execution_rate,
             'avg_time_per_task': avg_time,
-            'individual_results': [asdict(r) for r in results]
+            'individual_results': [asdict(r) for r in valid_results]
         }
     
     def format_results_message(self, metrics: Dict[str, Any]) -> str:

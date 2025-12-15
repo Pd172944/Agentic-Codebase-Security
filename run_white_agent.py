@@ -3,6 +3,7 @@ import uvicorn
 import os
 import argparse
 import sys
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Add current directory to path so we can import src
@@ -43,14 +44,43 @@ def main():
             print("Error: GOOGLE_API_KEY not found in environment")
             return
         agent_wrapper = create_gemini_a2a_agent()
-        
-    print(f"Starting {args.agent} agent server on http://{args.host}:{args.port}")
+
+    # --- NEW LOGIC: DETECT CLOUDFLARE ---
+    cloud_host_env = os.getenv("CLOUDRUN_HOST")
     
-    # Get the ASGI app from the wrapper and run it
-    app = agent_wrapper.to_a2a_server()
+    if cloud_host_env:
+        # If the env var is set (e.g., https://xyz.trycloudflare.com)
+        # We must parse it to separate protocol (https) from host (xyz...)
+        if "://" not in cloud_host_env:
+            cloud_host_env = f"https://{cloud_host_env}"
+            
+        parsed = urlparse(cloud_host_env)
+        public_host = parsed.hostname
+        public_protocol = parsed.scheme
+        public_port = 443  # Cloudflare tunnels always use 443 for HTTPS
+        
+        print(f"🌍 Configuring Agent Card for External Access: {public_protocol}://{public_host}:{public_port}")
+        
+        # Pass these to the wrapper so the JSON card is correct
+        app = agent_wrapper.to_a2a_server(
+            host=public_host, 
+            port=public_port, 
+            protocol=public_protocol
+        )
+    else:
+        # Fallback to local defaults if no tunnel is detected
+        print(f"🏠 Configuring Agent Card for Local Access: http://localhost:{args.port}")
+        app = agent_wrapper.to_a2a_server(
+            host="localhost",
+            port=args.port,
+            protocol="http"
+        )
+    # ------------------------------------
+
+    print(f"Starting {args.agent} agent server locally on http://{args.host}:{args.port}")
+    
+    # We still run uvicorn on the local port, because the tunnel forwards traffic HERE.
     uvicorn.run(app, host=args.host, port=args.port)
 
 if __name__ == "__main__":
     main()
-
-
