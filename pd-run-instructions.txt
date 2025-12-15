@@ -68,3 +68,11 @@ agentbeats run_ctrl
 - **"Agent Card Content could not be loaded"**: Ensure `CLOUDRUN_HOST` was set correctly when starting the controller. It must match your public ngrok domain.
 - **"Address already in use"**: Kill any lingering python processes (`pkill -f server.py` or `pkill -f agentbeats`).
 
+
+
+
+
+#REALLLLLLLLLLLLL
+export CLOUDRUN_HOST="centerable-maidenly-helen.ngrok-free.dev"
+terminal 1: run venv/bin/agentbeats run_ctrl
+terminal 2: ngrok http 8010 (or whatever the local address is)

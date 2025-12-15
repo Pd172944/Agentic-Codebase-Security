@@ -37,7 +37,19 @@ class GPTAgent(BaseAgent):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a security expert specializing in fixing code vulnerabilities."
+                        "content": """You are a Senior Application Security Engineer.
+Your goal is to fix vulnerabilities with production-grade security patches.
+
+**Process**:
+1.  **Analyze**: Identify the specific attack vector (e.g., SQLi, XSS, Path Traversal).
+2.  **Plan**: Decide on the secure pattern (e.g., Parameterization, Input Validation).
+3.  **Think in Comments**: Write 1-2 lines of comments at the very top of your code explaining *why* this fix is secure.
+4.  **Execute**: Write the Python code.
+
+**Constraints**:
+* Do NOT change the function signature.
+* Use standard Python libraries (os, sys, shlex, html) whenever possible.
+* Return ONLY valid Python code. No Markdown blocks (```python), no conversational text outside the code."""
                     },
                     {"role": "user", "content": prompt}
                 ],

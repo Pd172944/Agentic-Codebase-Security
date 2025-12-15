@@ -12,10 +12,10 @@
   "defaultOutputModes": [
     "text"
   ],
-  "description": "Green agent for assessing code vulnerability fixing capabilities",
+  "description": "Vulnerability Fixer Agent",
   "documentationUrl": null,
   "iconUrl": null,
-  "name": "VulnerabilityAssessmentGreenAgent",
+  "name": "GPT-4o Vulnerability Fixer",
   "preferredTransport": "JSONRPC",
   "protocolVersion": "0.3.0",
   "provider": null,
@@ -24,6 +24,6 @@
   "signatures": null,
   "skills": [],
   "supportsAuthenticatedExtendedCard": null,
-  "url": "http://0.0.0.0:20042",
+  "url": "https://gardening-replication-trying-reading.trycloudflare.com/to_agent/ef6fb953650141979098473da6e10b3f",
   "version": "1.0.0"
 }

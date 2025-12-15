@@ -1,3 +1,4 @@
 #!/bin/bash
-# Uses the python interpreter from the current environment (venv)
-python3 -m src.green_agent.server
+# Default to port 8002 for the agent itself
+
+python run_white_agent.py --port $AGENT_PORT
