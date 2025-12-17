@@ -55,9 +55,10 @@ python src/main.py
 4. **Code Execution**: Syntax and compilation testing
 5. **Performance**: Time, tokens, cost tracking
 
-## A2A Protocol & AgentBeats
+## Instructions to reproduce evaluation results
+Due to very limited resources for us, including financial strain for token purchases, we were only able to run on 100 samples once with a different CoT reasoning structure that was iterated upon. Our report (irrelevant for those browsing this repo for fun) hinges on the availability of tokens to run 100 samples many times so that you can average out the results and look at differing CoT structures. If we had more API credits available, we would have also run ablation studies to verify the results on 100 samples. As for now, the results presented in our report are accurate from a prior run on 100 samples.
 
-This framework implements the [Agent2Agent (A2A) Protocol](https://a2a-protocol.org/) for standardized AI agent communication. Agents can interoperate with other A2A-compliant systems.
+
 
 **Quick Start:**
 ```bash
