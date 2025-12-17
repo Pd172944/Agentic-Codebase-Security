@@ -1,11 +1,6 @@
 # AI Agent Security Vulnerability Evaluation Framework
 
-Evaluates GPT-4o, Claude Sonnet 4, and Gemini 2.0 Flash on fixing Python code vulnerabilities from the CyberNative dataset.
-
-> **🟢 NEW: Green Agent Implementation!**  
-> 👉 **[Quick Start Guide →](GREEN_AGENT_QUICKSTART.md)** | **[Run Now →](RUN_GREEN_AGENT.md)**  
-> Green agent assessment system that evaluates your existing agents!
-
+Evaluates GPT-4o, Claude Sonnet 4, and Gemini 2.0 Flash on fixing Python code vulnerabilities from insecure codebases
 ## Features
 
 - **Real-time Web Interface** with live evaluation updates
@@ -29,11 +24,18 @@ python run_webapp.py
 # Click "Start Demo" to see it in action (no API keys needed!)
 ```
 
-### Command-Line Interface
+### Command-Line Interface for agentbeats
 
 ```bash
-# Install dependencies
+# Install dependencies in both terminals, create a virtual environment
 pip install -r requirements.txt
+
+# in terminal 1 run cloudflated tunnel command with flag --8010
+
+# in terminal 2 run cloudflated tunnel command with flag --8020
+
+# in terminal 3, 4 export CLOUDRUN_HOST, HTTPS_ENABLED, PORT, AGENT_PORT and then venv/bin/agentbeats run_ctrl
+
 
 # Configure API keys
 cp .env.example .env
@@ -44,12 +46,6 @@ python src/main.py
 ```
 
 ## Documentation
-
-- **[GREEN_AGENT_QUICKSTART.md](GREEN_AGENT_QUICKSTART.md)** - ⭐ NEW: Green agent quick start
-- **[RUN_GREEN_AGENT.md](RUN_GREEN_AGENT.md)** - Step-by-step running guide
-- **[WEBAPP_GUIDE.md](WEBAPP_GUIDE.md)** - Complete web app usage guide
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design and structure
-- **[USAGE.md](USAGE.md)** - CLI usage and configuration
 
 ## Evaluation Metrics
 
@@ -85,7 +81,6 @@ python src/launcher.py --agent gpt --samples 3
 - ✅ **Comprehensive Metrics**: Similarity, security, execution testing
 - ✅ **Simple to Run**: One command execution
 
-**Read More:** See [GREEN_AGENT_QUICKSTART.md](GREEN_AGENT_QUICKSTART.md) for complete details.
 
 ## Dataset
 
