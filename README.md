@@ -84,9 +84,3 @@ Uses the [CyberNative/Code_Vulnerability_Security_DPO](https://huggingface.co/da
 - 4,660 total examples across 11 languages
 - Filtered to Python-only for consistency
 - Paired vulnerable/fixed code samples
-
-## Results
-
-Results are saved in `results/` directory:
-- **CSV**: Detailed per-evaluation metrics
-- **JSON**: Summary statistics by agent
