@@ -1,18 +1,3 @@
-# AI Agent Security Vulnerability Evaluation Framework
-
-Evaluates GPT-4o, Claude Sonnet 4, and Gemini 2.0 Flash on fixing Python code vulnerabilities from the CyberNative dataset.
-
-> **🟢 NEW: Green Agent Implementation!**  
-> 👉 **[Quick Start Guide →](GREEN_AGENT_QUICKSTART.md)** | **[Run Now →](RUN_GREEN_AGENT.md)**  
-> Green agent assessment system that evaluates your existing agents!
-
-## Features
-
-- **Real-time Web Interface** with live evaluation updates
-- **A2A Protocol Integration** for standardized agent communication
-- **Demo Mode** for testing without API keys
-- **Python-focused** to ensure consistent comparisons
-- **5-dimensional scoring** with LLM evaluation, static analysis, and execution testing
 
 ## Quick Start
 
@@ -31,6 +16,8 @@ python run_webapp.py
 
 ### Command-Line Interface
 
+
+# same steps for virtual environment, see branch green
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -39,8 +26,16 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your API keys
 
-# Run evaluation
+# Run evaluation for cloudflared see below
 python src/main.py
+
+
+
+# Cloudflared to config on agentbeats
+cloudflared tunnel --url http://localhost:8020
+
+#in separate terminal run
+export CLOUDRUN_HOST=<cloudflared url from other terminal> export HTTPS_ENABLED=true export AGENT_PORT=8020 export PORT=8020 venv/bin/agentbeats run_ctrl
 ```
 
 ## Documentation
