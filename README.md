@@ -12,7 +12,10 @@ python run_webapp.py
 
 # Open http://localhost:8000 in your browser
 # Click "Start Demo" to see it in action (no API keys needed!)
+
 ```
+## Instructions to reproduce evaluation results
+Due to very limited resources for us, including financial strain for token purchases, we were only able to run on 100 samples once with a different CoT reasoning structure that was iterated upon. Our report (irrelevant for those browsing this repo for fun) hinges on the availability of tokens to run 100 samples many times so that you can average out the results and look at differing CoT structures. If we had more API credits available, we would have also run ablation studies to verify the results on 100 samples. As for now, the results presented in our report are accurate from a prior run on 100 samples.
 
 ### Command-Line Interface specific for Green Agent run in Agentbeats
 
