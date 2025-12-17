@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 # Configure API keys
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys using vim or other editor
 
 # Run evaluation
 python src/main.py
@@ -58,10 +58,6 @@ python src/main.py
 ## A2A Protocol & AgentBeats
 
 This framework implements the [Agent2Agent (A2A) Protocol](https://a2a-protocol.org/) for standardized AI agent communication. Agents can interoperate with other A2A-compliant systems.
-
-### 🟢 Green Agent Assessment (NEW!)
-
-We've implemented a **green agent** following the [AgentBeats "Agentify the Agent Assessment"](https://agentbeats.ai/blog/agentify-agent-assessment) blog post. The green agent assesses your existing agents' vulnerability fixing capabilities.
 
 **Quick Start:**
 ```bash
