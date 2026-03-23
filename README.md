@@ -14,6 +14,10 @@ Evaluates GPT-4o, Claude Sonnet 4, and Gemini 2.0 Flash on fixing Python code vu
 Our demo shows a dry run of the system, demonstrating how PRs are auto-generated, plots of security fixes and performance, cost, time to execute, and the interface of the platform.
 
 
+https://github.com/user-attachments/assets/c2a8df79-8191-43aa-86d1-43bcb1c5a037
+
+
+
 
 ## Quick Start
 
