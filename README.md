@@ -9,6 +9,12 @@ Evaluates GPT-4o, Claude Sonnet 4, and Gemini 2.0 Flash on fixing Python code vu
 - **Python-focused** to ensure consistent comparisons
 - **5-dimensional scoring** with LLM evaluation, static analysis, and execution testing
 
+
+## DEMO (Green Agent)
+Our demo shows a dry run of the system, demonstrating how PRs are auto-generated, plots of security fixes and performance, cost, time to execute, and the interface of the platform.
+
+
+
 ## Quick Start
 
 ### Web Application (Recommended)
