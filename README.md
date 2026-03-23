@@ -40,12 +40,12 @@ python run_webapp.py
 # Install dependencies in both terminals, create a virtual environment
 pip install -r requirements.txt
 
-# in terminal 1 run cloudflated tunnel command with flag --8010
-
-# in terminal 2 run cloudflated tunnel command with flag --8020
-
+# in terminal 1 run cloudflared tunnel command with flag --8010
+cloudflared tunnel create my-tunnel
+# in terminal 2 run cloudflared tunnel command with flag --8020
+cloudflared tunnel create my-tunnel
 # in terminal 3, 4 export CLOUDRUN_HOST, HTTPS_ENABLED, PORT, AGENT_PORT and then venv/bin/agentbeats run_ctrl
-
+(export with your specific details)
 
 # Configure API keys
 cp .env.example .env
